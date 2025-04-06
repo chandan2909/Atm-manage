@@ -2,3 +2,23 @@
 *.vscode
 *out
 PROJECT_REPORT.md
+
+# Compiled class files
+*.class
+
+# Log files
+*.log
+
+# IDE specific files
+.idea/
+*.iml
+
+# Output directories
+out/
+bin/
+target/
+build/
+
+# Other temporary files
+*.tmp
+*.temp
