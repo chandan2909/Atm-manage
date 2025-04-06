@@ -34,7 +34,7 @@ A Java-based ATM Management System with a modern graphical user interface and se
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/chandan2909/Atm
+git clone https://github.com/chandan2909/Atm-manage
 ```
 
 2. Import the project into your preferred IDE
