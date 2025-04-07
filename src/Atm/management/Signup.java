@@ -11,7 +11,6 @@ import javax.swing.text.PlainDocument;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.border.TitledBorder;
-import javax.swing.InputVerifier;
 import javax.swing.SwingWorker;
 import java.util.List;
 import java.util.ArrayList;
@@ -24,7 +23,8 @@ import java.awt.event.ComponentEvent;
 
 public class Signup extends JFrame implements ActionListener {
     // UI Components
-    private JTextField textName, textFname, textEmail, textAdd, textCity, textState, textPin, textPan, textAadhar;
+    private JTextField textName, textFname, textEmail, textAdd, textCity, textPin, textPan, textAadhar;
+    private JComboBox<String> stateCombo;
     private JDateChooser dateChooser;
     private JRadioButton r1, r2, m1, m2, m3;
     private JComboBox<String> comboReligion, comboCategory, comboIncome, comboEducation, comboOccupation, comboAccountType;
@@ -151,8 +151,7 @@ public class Signup extends JFrame implements ActionListener {
         textFname.addActionListener(_ -> dateChooser.getDateEditor().getUiComponent().requestFocus());
         textEmail.addActionListener(_ -> textAdd.requestFocus());
         textAdd.addActionListener(_ -> textCity.requestFocus());
-        textCity.addActionListener(_ -> textState.requestFocus());
-        textState.addActionListener(_ -> textPin.requestFocus());
+        textCity.addActionListener(_ -> stateCombo.requestFocus());
         textPin.addActionListener(_ -> textAadhar.requestFocus());
         textAadhar.addActionListener(_ -> seniorYes.requestFocus());
         seniorYes.addActionListener(_ -> seniorNo.requestFocus());
@@ -222,14 +221,32 @@ public class Signup extends JFrame implements ActionListener {
 
     private JTextField createPinField() {
         JTextField field = new JTextField();
-        field.setDocument(new LengthRestrictedDocument(6));
-        field.setInputVerifier(new InputVerifier() {
+        field.setDocument(new PlainDocument() {
             @Override
-            public boolean verify(JComponent input) {
-                JTextField tf = (JTextField) input;
-                return tf.getText().matches("\\d{6}");
+            public void insertString(int offs, String str, AttributeSet a) throws BadLocationException {
+                if (str == null) return;
+                // Only allow digits
+                String newStr = str.replaceAll("[^0-9]", "");
+                // Check if total length would be <= 6
+                if ((getLength() + newStr.length()) <= 6) {
+                    super.insertString(offs, newStr, a);
+                }
             }
         });
+        
+        field.setPreferredSize(new Dimension(400, 35));
+        field.setMaximumSize(new Dimension(400, 35));
+        field.setFont(new Font("Arial", Font.PLAIN, 14));
+        field.setBackground(Color.WHITE);
+        field.setForeground(new Color(47, 76, 96));
+        field.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200)),
+            BorderFactory.createEmptyBorder(5, 10, 5, 10)
+        ));
+        
+        // Add a tooltip to help users
+        field.setToolTipText("Please enter a 6-digit PIN code");
+        
         return field;
     }
 
@@ -329,10 +346,25 @@ public class Signup extends JFrame implements ActionListener {
 
     private Component createDateField() {
         dateChooser = new JDateChooser();
+        
+        // Set date format
         dateChooser.setDateFormatString("yyyy-MM-dd");
+        
+        // Calculate date 18 years ago
+        java.util.Calendar calendar = java.util.Calendar.getInstance();
+        calendar.add(java.util.Calendar.YEAR, -18);
+        java.util.Date maxDate = calendar.getTime();
+        
+        // Set properties to dateChooser
+        ((JTextField)dateChooser.getDateEditor().getUiComponent()).setEditable(false);
+        dateChooser.setMaxSelectableDate(maxDate);
+        dateChooser.setToolTipText("You must be at least 18 years old");
+        
+        // Customize appearance
         dateChooser.getCalendarButton().setPreferredSize(new Dimension(30, 24));
         dateChooser.setPreferredSize(new Dimension(250, 30));
         dateChooser.setMaximumSize(new Dimension(250, 30));
+        
         return dateChooser;
     }
 
@@ -379,6 +411,63 @@ public class Signup extends JFrame implements ActionListener {
         return panel;
     }
 
+    private JComboBox<String> createStateCombo() {
+        // List of Indian states
+        String[] states = {
+            "-- Select State --",
+            // States
+            "Andhra Pradesh",
+            "Arunachal Pradesh",
+            "Assam",
+            "Bihar",
+            "Chhattisgarh",
+            "Goa",
+            "Gujarat",
+            "Haryana",
+            "Himachal Pradesh",
+            "Jharkhand",
+            "Karnataka",
+            "Kerala",
+            "Madhya Pradesh",
+            "Maharashtra",
+            "Manipur",
+            "Meghalaya",
+            "Mizoram",
+            "Nagaland",
+            "Odisha",
+            "Punjab",
+            "Rajasthan",
+            "Sikkim",
+            "Tamil Nadu",
+            "Telangana",
+            "Tripura",
+            "Uttar Pradesh",
+            "Uttarakhand",
+            "West Bengal",
+            // Union Territories
+            "Andaman and Nicobar Islands",
+            "Chandigarh",
+            "Dadra and Nagar Haveli and Daman and Diu",
+            "Delhi (National Capital Territory of Delhi)",
+            "Jammu and Kashmir",
+            "Ladakh",
+            "Lakshadweep",
+            "Puducherry"
+        };
+        
+        JComboBox<String> combo = new JComboBox<>(states);
+        combo.setPreferredSize(new Dimension(400, 35));
+        combo.setMaximumSize(new Dimension(400, 35));
+        combo.setFont(new Font("Arial", Font.PLAIN, 14));
+        combo.setBackground(Color.WHITE);
+        combo.setForeground(new Color(47, 76, 96));
+        combo.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200)),
+            BorderFactory.createEmptyBorder(5, 10, 5, 10)
+        ));
+        return combo;
+    }
+
     @Override
     public void actionPerformed(ActionEvent e) {
         JDialog loadingDialog = new JDialog(this, "Processing", true);
@@ -414,7 +503,7 @@ public class Signup extends JFrame implements ActionListener {
                             ps.setString(7, getSelectedRadio("Marital"));
                             ps.setString(8, textAdd.getText());
                             ps.setString(9, textCity.getText());
-                            ps.setString(10, textState.getText());
+                            ps.setString(10, (String) stateCombo.getSelectedItem());
                             ps.setString(11, textPin.getText());
                             ps.setString(12, (String) comboReligion.getSelectedItem());
                             ps.setString(13, (String) comboCategory.getSelectedItem());
@@ -692,12 +781,24 @@ public class Signup extends JFrame implements ActionListener {
         if (textName.getText().trim().isEmpty()) errors.add("Name is required");
         if (textFname.getText().trim().isEmpty()) errors.add("Father's Name is required");
         if (dateChooser.getDate() == null) errors.add("Date of Birth is required");
+        else {
+            // Verify age is at least 18
+            java.util.Calendar dobCal = java.util.Calendar.getInstance();
+            dobCal.setTime(dateChooser.getDate());
+            
+            java.util.Calendar now = java.util.Calendar.getInstance();
+            now.add(java.util.Calendar.YEAR, -18);
+            
+            if (dobCal.after(now)) {
+                errors.add("You must be at least 18 years old to register");
+            }
+        }
         if (!r1.isSelected() && !r2.isSelected()) errors.add("Gender is required");
         if (textEmail.getText().trim().isEmpty()) errors.add("Email is required");
         if (!m1.isSelected() && !m2.isSelected() && !m3.isSelected()) errors.add("Marital Status is required");
         if (textAdd.getText().trim().isEmpty()) errors.add("Address is required");
         if (textCity.getText().trim().isEmpty()) errors.add("City is required");
-        if (textState.getText().trim().isEmpty()) errors.add("State is required");
+        if (stateCombo.getSelectedIndex() == 0) errors.add("State is required");
         if (textPin.getText().length() != 6) errors.add("PIN Code must be 6 digits");
         if (textPan.getText().trim().isEmpty()) errors.add("PAN Number is required");
         if (textAadhar.getText().trim().isEmpty()) errors.add("Aadhar Number is required");
@@ -788,7 +889,7 @@ public class Signup extends JFrame implements ActionListener {
         fieldsPanel.add(Box.createVerticalStrut(10));
         fieldsPanel.add(createFormRow("City:", textCity = createTextField()));
         fieldsPanel.add(Box.createVerticalStrut(10));
-        fieldsPanel.add(createFormRow("State:", textState = createTextField()));
+        fieldsPanel.add(createFormRow("State:", stateCombo = createStateCombo()));
         fieldsPanel.add(Box.createVerticalStrut(10));
         fieldsPanel.add(createFormRow("PIN Code:", textPin = createPinField()));
         
