@@ -4,7 +4,11 @@ A Java-based ATM Management System with a modern graphical user interface and se
 
 ## Features
 
-- 🔐 Secure user authentication with PIN hashing
+- 🔐 Enhanced security:
+  - Secure user authentication with SHA-256 PIN hashing
+  - Account lockout after multiple failed attempts
+  - Security question verification for PIN reset
+  - Strong PIN requirements and validation
 - 💰 Basic banking operations:
   - Cash deposit
   - Cash withdrawal
@@ -12,9 +16,19 @@ A Java-based ATM Management System with a modern graphical user interface and se
   - PIN change
   - Mini statement
   - Fast cash options
-- 📝 New account registration
-- 🎨 Modern UI with responsive design
-- 🔒 Session management and security features
+- 📝 Improved account registration:
+  - Comprehensive user information collection
+  - Copiable credentials for new users
+  - Security question setup during registration
+- 🎨 Modern UI with responsive design:
+  - Professional button styling with hover effects
+  - Centered layout for better user experience
+  - Clear visual feedback for user actions
+- 🔒 Enhanced security infrastructure:
+  - Account locking system
+  - Failed attempts tracking
+  - Proper PIN reset verification flow
+  - Protection against sequential and repetitive PINs
 
 ## Technologies Used
 
@@ -22,6 +36,7 @@ A Java-based ATM Management System with a modern graphical user interface and se
 - JDBC for database connectivity
 - MySQL for data storage
 - SHA-256 for PIN hashing
+- Custom security infrastructure
 
 ## Prerequisites
 
@@ -46,6 +61,14 @@ git clone https://github.com/chandan2909/Atm-manage
      mysql -u your_username -p atm < atm_schema.sql
      ```
    - This will create all necessary tables, indexes, and views
+   - Add the required security columns to the login table:
+     ```sql
+     ALTER TABLE login 
+     ADD COLUMN failed_attempts INT DEFAULT 0, 
+     ADD COLUMN is_locked INT DEFAULT 0, 
+     ADD COLUMN security_question VARCHAR(255), 
+     ADD COLUMN security_answer VARCHAR(255);
+     ```
 
 4. Configure database connection:
    - Update the connection details in `src/Atm/management/Connn.java`
@@ -57,7 +80,7 @@ git clone https://github.com/chandan2909/Atm-manage
 ## Database Schema
 
 The system uses three main tables:
-- `login` - Stores user credentials and card information
+- `login` - Stores user credentials, card information, and security data
 - `bank` - Stores transaction records
 - `signup` - Stores user account details
 
@@ -70,21 +93,39 @@ java -cp ".:lib/*" Atm.management.Login
 
 2. For new users:
    - Click "SIGN UP" to create a new account
-   - Fill in the required details
-   - Note down your card number and PIN
+   - Fill in the required details including a security question and answer
+   - After registration, easily copy your card number and PIN using the Copy buttons
+   - Store these credentials securely for future login
 
 3. For existing users:
    - Enter your card number and PIN
    - Access various banking operations from the main menu
 
+4. If you forget your PIN:
+   - Click "RESET PIN" on the login screen
+   - Enter your card number
+   - Answer your security question correctly
+   - Choose a new PIN that meets security requirements
+
 ## Security Features
 
-- PIN hashing using SHA-256
-- Session management
-- Input validation
-- Error handling
-- Maximum login attempts
-- Secure database operations
+- Secure PIN handling:
+  - SHA-256 hashing with salt for PIN storage
+  - Strong PIN requirements (4-6 digits)
+  - Prevention of sequential digits (like 1234)
+  - Limits on repeating digits
+  
+- Account protection:
+  - Maximum login attempts with account lockout
+  - Security question verification for PIN reset
+  - Tracking of failed attempts
+  - Account locking after too many failed security verifications
+  
+- Data security:
+  - Input validation for all user data
+  - Proper error handling
+  - Secure database operations
+  - Protection against SQL injection
 
 ## Contributing
 

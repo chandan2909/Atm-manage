@@ -24,19 +24,20 @@ import java.awt.event.ComponentEvent;
 
 public class Signup extends JFrame implements ActionListener {
     // UI Components
-    private JTextField textName, textFname, textEmail, textAdd, textCity, textState, textPin;
+    private JTextField textName, textFname, textEmail, textAdd, textCity, textState, textPin, textPan, textAadhar;
     private JDateChooser dateChooser;
     private JRadioButton r1, r2, m1, m2, m3;
-    private JComboBox<String> comboReligion, comboCategory, comboIncome, comboEducation, comboOccupation;
-    private JTextField textPan, textAadhar;
+    private JComboBox<String> comboReligion, comboCategory, comboIncome, comboEducation, comboOccupation, comboAccountType;
     private JRadioButton seniorYes, seniorNo, existingYes, existingNo;
-    private JComboBox<String> comboAccountType;
     private JCheckBox c1, c2, c3, c4, c5, c6;
     private JButton submit;
     
     private final Random ran = new Random();
     private final String formno;
     private final Login loginWindow;
+    // Add security question components
+    private JComboBox<String> comboSecurityQuestion;
+    private JTextField textSecurityAnswer;
 
     public Signup(Login login) {
         super("APPLICATION FORM");
@@ -98,6 +99,8 @@ public class Signup extends JFrame implements ActionListener {
         formContainer.add(createAdditionalDetailsSection());
         formContainer.add(Box.createVerticalStrut(15));
         formContainer.add(createAccountDetailsSection());
+        formContainer.add(Box.createVerticalStrut(15));
+        formContainer.add(createSecurityDetailsSection());
 
         // Create scroll pane with proper settings
         JScrollPane scrollPane = new JScrollPane(formContainer);
@@ -427,12 +430,14 @@ public class Signup extends JFrame implements ActionListener {
                             ps.executeUpdate();
                         }
 
-                        // Insert into login
+                        // Insert into login with security question and answer
                         try (PreparedStatement ps = conn.prepareStatement(
-                            "INSERT INTO login VALUES (?,?,?)")) {
+                            "INSERT INTO login (formno, cardno, pin, security_question, security_answer) VALUES (?,?,?,?,?)")) {
                             ps.setString(1, formno);
                             ps.setString(2, cardno);
                             ps.setString(3, hashedPin);
+                            ps.setString(4, (String) comboSecurityQuestion.getSelectedItem());
+                            ps.setString(5, textSecurityAnswer.getText().trim());
                             ps.executeUpdate();
                         }
 
@@ -450,15 +455,145 @@ public class Signup extends JFrame implements ActionListener {
                             successLabel.setForeground(Color.WHITE);
                             successLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
                             
-                            JLabel cardLabel = new JLabel("Your Card Number: " + cardno);
-                            cardLabel.setFont(new Font("Arial", Font.BOLD, 18));
-                            cardLabel.setForeground(new Color(175, 221, 255));
-                            cardLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                            // Create panel for card number with copy button
+                            JPanel cardPanel = new JPanel(new BorderLayout(10, 5));
+                            cardPanel.setBackground(new Color(47, 76, 96));
+                            cardPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                            cardPanel.setMaximumSize(new Dimension(400, 80));
                             
-                            JLabel pinLabel = new JLabel("Your PIN: " + rawPin);
-                            pinLabel.setFont(new Font("Arial", Font.BOLD, 18));
+                            JLabel cardLabel = new JLabel("Your Card Number:");
+                            cardLabel.setFont(new Font("Arial", Font.BOLD, 16));
+                            cardLabel.setForeground(new Color(175, 221, 255));
+                            
+                            JPanel cardFieldPanel = new JPanel(new BorderLayout());
+                            cardFieldPanel.setBackground(new Color(47, 76, 96));
+                            
+                            JTextField cardField = new JTextField(cardno);
+                            cardField.setFont(new Font("Arial", Font.BOLD, 16));
+                            cardField.setForeground(new Color(47, 76, 96));
+                            cardField.setBackground(new Color(240, 240, 240));
+                            cardField.setEditable(false);
+                            cardField.setBorder(BorderFactory.createCompoundBorder(
+                                BorderFactory.createLineBorder(new Color(175, 221, 255), 1),
+                                BorderFactory.createEmptyBorder(5, 10, 5, 10)
+                            ));
+                            
+                            cardFieldPanel.add(cardField, BorderLayout.CENTER);
+                            
+                            JPanel cardTopPanel = new JPanel(new BorderLayout(10, 0));
+                            cardTopPanel.setBackground(new Color(47, 76, 96));
+                            cardTopPanel.add(cardLabel, BorderLayout.WEST);
+                            cardTopPanel.add(cardFieldPanel, BorderLayout.CENTER);
+                            
+                            JButton copyCardButton = new JButton("Copy");
+                            copyCardButton.setFont(new Font("Arial", Font.BOLD, 12));
+                            copyCardButton.setForeground(Color.WHITE);
+                            copyCardButton.setBackground(new Color(95, 155, 155));
+                            copyCardButton.setFocusPainted(false);
+                            copyCardButton.setBorderPainted(false);
+                            copyCardButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                            copyCardButton.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+                            copyCardButton.setMaximumSize(new Dimension(80, 25));
+                            copyCardButton.setMargin(new Insets(2, 10, 2, 10));
+                            
+                            // Add hover effect using mouse listener
+                            copyCardButton.addMouseListener(new java.awt.event.MouseAdapter() {
+                                public void mouseEntered(java.awt.event.MouseEvent evt) {
+                                    copyCardButton.setBackground(new Color(75, 135, 135));
+                                }
+                                public void mouseExited(java.awt.event.MouseEvent evt) {
+                                    copyCardButton.setBackground(new Color(95, 155, 155));
+                                }
+                            });
+                            
+                            copyCardButton.addActionListener(_ -> {
+                                cardField.selectAll();
+                                cardField.copy();
+                                JOptionPane.showMessageDialog(
+                                    successPanel, 
+                                    "Card number copied to clipboard!", 
+                                    "Copied", 
+                                    JOptionPane.INFORMATION_MESSAGE
+                                );
+                            });
+                            
+                            // Create a panel for the button to position it in the center
+                            JPanel cardButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                            cardButtonPanel.setBackground(new Color(47, 76, 96));
+                            cardButtonPanel.add(copyCardButton);
+                            
+                            cardPanel.add(cardTopPanel, BorderLayout.CENTER);
+                            cardPanel.add(cardButtonPanel, BorderLayout.SOUTH);
+                            
+                            // Create panel for PIN with copy button
+                            JPanel pinPanel = new JPanel(new BorderLayout(10, 5));
+                            pinPanel.setBackground(new Color(47, 76, 96));
+                            pinPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                            pinPanel.setMaximumSize(new Dimension(400, 80));
+                            
+                            JLabel pinLabel = new JLabel("Your PIN:");
+                            pinLabel.setFont(new Font("Arial", Font.BOLD, 16));
                             pinLabel.setForeground(new Color(175, 221, 255));
-                            pinLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                            
+                            JPanel pinFieldPanel = new JPanel(new BorderLayout());
+                            pinFieldPanel.setBackground(new Color(47, 76, 96));
+                            
+                            JTextField pinField = new JTextField(rawPin);
+                            pinField.setFont(new Font("Arial", Font.BOLD, 16));
+                            pinField.setForeground(new Color(47, 76, 96));
+                            pinField.setBackground(new Color(240, 240, 240));
+                            pinField.setEditable(false);
+                            pinField.setBorder(BorderFactory.createCompoundBorder(
+                                BorderFactory.createLineBorder(new Color(175, 221, 255), 1),
+                                BorderFactory.createEmptyBorder(5, 10, 5, 10)
+                            ));
+                            
+                            pinFieldPanel.add(pinField, BorderLayout.CENTER);
+                            
+                            JPanel pinTopPanel = new JPanel(new BorderLayout(10, 0));
+                            pinTopPanel.setBackground(new Color(47, 76, 96));
+                            pinTopPanel.add(pinLabel, BorderLayout.WEST);
+                            pinTopPanel.add(pinFieldPanel, BorderLayout.CENTER);
+                            
+                            JButton copyPinButton = new JButton("Copy");
+                            copyPinButton.setFont(new Font("Arial", Font.BOLD, 12));
+                            copyPinButton.setForeground(Color.WHITE);
+                            copyPinButton.setBackground(new Color(95, 155, 155));
+                            copyPinButton.setFocusPainted(false);
+                            copyPinButton.setBorderPainted(false);
+                            copyPinButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                            copyPinButton.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+                            copyPinButton.setMaximumSize(new Dimension(80, 25));
+                            copyPinButton.setMargin(new Insets(2, 10, 2, 10));
+                            
+                            // Add hover effect using mouse listener
+                            copyPinButton.addMouseListener(new java.awt.event.MouseAdapter() {
+                                public void mouseEntered(java.awt.event.MouseEvent evt) {
+                                    copyPinButton.setBackground(new Color(75, 135, 135));
+                                }
+                                public void mouseExited(java.awt.event.MouseEvent evt) {
+                                    copyPinButton.setBackground(new Color(95, 155, 155));
+                                }
+                            });
+                            
+                            copyPinButton.addActionListener(_ -> {
+                                pinField.selectAll();
+                                pinField.copy();
+                                JOptionPane.showMessageDialog(
+                                    successPanel, 
+                                    "PIN copied to clipboard!", 
+                                    "Copied", 
+                                    JOptionPane.INFORMATION_MESSAGE
+                                );
+                            });
+                            
+                            // Create a panel for the button to position it in the center
+                            JPanel pinButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                            pinButtonPanel.setBackground(new Color(47, 76, 96));
+                            pinButtonPanel.add(copyPinButton);
+                            
+                            pinPanel.add(pinTopPanel, BorderLayout.CENTER);
+                            pinPanel.add(pinButtonPanel, BorderLayout.SOUTH);
                             
                             JLabel noteLabel = new JLabel("Please note these details for future login");
                             noteLabel.setFont(new Font("Arial", Font.ITALIC, 16));
@@ -468,9 +603,9 @@ public class Signup extends JFrame implements ActionListener {
                             successPanel.add(Box.createVerticalStrut(20));
                             successPanel.add(successLabel);
                             successPanel.add(Box.createVerticalStrut(30));
-                            successPanel.add(cardLabel);
+                            successPanel.add(cardPanel);
                             successPanel.add(Box.createVerticalStrut(15));
-                            successPanel.add(pinLabel);
+                            successPanel.add(pinPanel);
                             successPanel.add(Box.createVerticalStrut(30));
                             successPanel.add(noteLabel);
                             successPanel.add(Box.createVerticalStrut(20));
@@ -488,7 +623,7 @@ public class Signup extends JFrame implements ActionListener {
                             // Create and style the dialog
                             JDialog dialog = optionPane.createDialog(Signup.this, "Registration Complete");
                             dialog.setBackground(new Color(47, 76, 96));
-                            dialog.setSize(500, 400);
+                            dialog.setSize(550, 450);
                             dialog.setLocationRelativeTo(Signup.this);
                             
                             // Add a styled OK button
@@ -498,12 +633,26 @@ public class Signup extends JFrame implements ActionListener {
                             okButton.setBackground(new Color(65, 125, 128));
                             okButton.setFocusPainted(false);
                             okButton.setBorderPainted(false);
-                            okButton.setPreferredSize(new Dimension(100, 35));
+                            okButton.setPreferredSize(new Dimension(120, 40));
+                            okButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                            okButton.setBorder(BorderFactory.createEmptyBorder(8, 20, 8, 20));
+                            
+                            // Add hover effect to OK button
+                            okButton.addMouseListener(new java.awt.event.MouseAdapter() {
+                                public void mouseEntered(java.awt.event.MouseEvent evt) {
+                                    okButton.setBackground(new Color(45, 105, 108));
+                                }
+                                public void mouseExited(java.awt.event.MouseEvent evt) {
+                                    okButton.setBackground(new Color(65, 125, 128));
+                                }
+                            });
+                            
                             okButton.addActionListener(_ -> dialog.dispose());
                             
-                            JPanel buttonPanel = new JPanel();
+                            JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
                             buttonPanel.setBackground(new Color(47, 76, 96));
                             buttonPanel.add(okButton);
+                            buttonPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
                             successPanel.add(buttonPanel);
                             
                             dialog.setVisible(true);
@@ -558,6 +707,12 @@ public class Signup extends JFrame implements ActionListener {
         // Format validations
         if (!textEmail.getText().matches("^[A-Za-z0-9+_.-]+@(.+)$")) errors.add("Invalid email format");
         if (!textAadhar.getText().matches("\\d{12}")) errors.add("Aadhar Number must be 12 digits");
+        
+        // Security question answer validation
+        String securityAnswer = textSecurityAnswer.getText().trim();
+        if (securityAnswer.isEmpty()) {
+            errors.add("Security answer cannot be empty");
+        }
         
         if (!errors.isEmpty()) {
             JOptionPane.showMessageDialog(this, 
@@ -684,7 +839,8 @@ public class Signup extends JFrame implements ActionListener {
         fieldsPanel.setLayout(new BoxLayout(fieldsPanel, BoxLayout.Y_AXIS));
         fieldsPanel.setBackground(new Color(47, 76, 96));
         
-        fieldsPanel.add(createFormRow("Account Type:", comboAccountType = createCombo(new String[]{"Saving","Fixed Deposit","Current","Recurring Deposit"})));
+        comboAccountType = new JComboBox<>(new String[]{"Saving","Fixed Deposit","Current","Recurring Deposit"});
+        fieldsPanel.add(createFormRow("Account Type:", comboAccountType));
         fieldsPanel.add(Box.createVerticalStrut(15));
         fieldsPanel.add(createFormRow("Facilities:", createCheckboxGroup()));
         fieldsPanel.add(Box.createVerticalStrut(10));
@@ -708,6 +864,36 @@ public class Signup extends JFrame implements ActionListener {
         ));
         
         return field;
+    }
+
+    private Component createSecurityDetailsSection() {
+        JPanel panel = createSectionPanel("Security Details");
+        
+        // Set fixed size for this panel
+        panel.setPreferredSize(new Dimension(800, 200));
+        panel.setMaximumSize(new Dimension(800, 200));
+        
+        JPanel fieldsPanel = new JPanel();
+        fieldsPanel.setLayout(new BoxLayout(fieldsPanel, BoxLayout.Y_AXIS));
+        fieldsPanel.setBackground(new Color(47, 76, 96));
+        
+        // Create security question field
+        comboSecurityQuestion = new JComboBox<>(new String[] {
+            "What was your first pet's name?",
+            "What is your mother's maiden name?",
+            "What is the name of your first school?",
+            "What is your favorite book?",
+            "What city were you born in?"
+        });
+        fieldsPanel.add(createFormRow("Security Question:", comboSecurityQuestion));
+        fieldsPanel.add(Box.createVerticalStrut(15));
+        
+        // Create security answer field
+        textSecurityAnswer = new JTextField(20);
+        fieldsPanel.add(createFormRow("Answer:", textSecurityAnswer));
+        
+        panel.add(fieldsPanel);
+        return panel;
     }
 }
 

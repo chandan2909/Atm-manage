@@ -18,7 +18,7 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
     private final JLabel label1, label2, label3;
     private final JTextField cardNumberField;
     private final JPasswordField pinField;
-    private final JButton signInButton, clearButton, signUpButton;
+    private final JButton signInButton, clearButton, signUpButton, resetPinButton;
     private JLabel background;
 
     public Login() {
@@ -42,6 +42,7 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
         signInButton = new JButton("SIGN IN");
         clearButton = new JButton("CLEAR");
         signUpButton = new JButton("SIGN UP");
+        resetPinButton = new JButton("RESET PIN");
         
         setupBackground();
         setupComponents();
@@ -109,6 +110,7 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
         setupButton(signInButton);
         setupButton(clearButton);
         setupButton(signUpButton);
+        setupButton(resetPinButton);
     }
 
     private void setupButton(JButton button) {
@@ -150,6 +152,8 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
                 clearFields();
             } else if (e.getSource() == signUpButton) {
                 handleSignUp();
+            } else if (e.getSource() == resetPinButton) {
+                handlePinReset();
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "An error occurred. Please try again.");
@@ -223,6 +227,258 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
         new Signup(this);
     }
 
+    private void handlePinReset() {
+        String cardNo = cardNumberField.getText().trim();
+        
+        if (cardNo.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter your Card Number");
+            return;
+        }
+        
+        if (!cardNo.matches("\\d+")) {
+            JOptionPane.showMessageDialog(this, "Card Number must contain only digits");
+            return;
+        }
+
+        // First verify the card exists and get security question
+        try (Connection conn = Connn.getConnection()) {
+            // Check if account is locked
+            String lockCheckQuery = "SELECT is_locked, failed_attempts FROM login WHERE cardno = ?";
+            try (PreparedStatement lockPs = conn.prepareStatement(lockCheckQuery)) {
+                lockPs.setString(1, cardNo);
+                try (ResultSet lockRs = lockPs.executeQuery()) {
+                    if (!lockRs.next()) {
+                        JOptionPane.showMessageDialog(this, "Card number not found.");
+                        return;
+                    }
+                    
+                    int isLocked = lockRs.getInt("is_locked");
+                    if (isLocked == 1) {
+                        JOptionPane.showMessageDialog(this, 
+                            "This account is locked due to security concerns.\n" +
+                            "Please contact your bank for assistance.",
+                            "Account Locked", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                }
+            }
+
+            String query = "SELECT security_question, security_answer FROM login WHERE cardno = ?";
+            try (PreparedStatement ps = conn.prepareStatement(query)) {
+                ps.setString(1, cardNo);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        JOptionPane.showMessageDialog(this, "Card number not found.");
+                        return;
+                    }
+
+                    String securityQuestion = rs.getString("security_question");
+                    String correctAnswer = rs.getString("security_answer");
+
+                    // Ask security question
+                    JPanel panel = new JPanel(new GridLayout(2, 1));
+                    panel.add(new JLabel("Security Question: " + securityQuestion));
+                    JPasswordField answerField = new JPasswordField();
+                    panel.add(answerField);
+                    
+                    int result = JOptionPane.showConfirmDialog(this, panel, 
+                        "Security Verification", JOptionPane.OK_CANCEL_OPTION, 
+                        JOptionPane.PLAIN_MESSAGE);
+                    
+                    if (result != JOptionPane.OK_OPTION) {
+                        return; // User cancelled
+                    }
+                    
+                    String userAnswer = new String(answerField.getPassword()).trim();
+                    
+                    if (userAnswer.isEmpty()) {
+                        JOptionPane.showMessageDialog(this, "Answer cannot be empty.");
+                        return;
+                    }
+
+                    // Compare answers (case-insensitive)
+                    if (!userAnswer.equalsIgnoreCase(correctAnswer.trim())) {
+                        // Record failed attempt
+                        recordFailedSecurityAttempt(cardNo, conn);
+                        JOptionPane.showMessageDialog(this, "Incorrect answer to security question.");
+                        return;
+                    }
+
+                    // If answer is correct, allow PIN reset
+                    String newPin = showPinResetDialog();
+                    if (newPin != null) {
+                        updatePin(cardNo, newPin, conn);
+                        // Reset failed attempts counter
+                        resetFailedAttempts(cardNo, conn);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "An error occurred during PIN reset.");
+        }
+    }
+
+    private void recordFailedSecurityAttempt(String cardNo, Connection conn) {
+        try {
+            // Get current failed attempts count
+            String query = "SELECT failed_attempts FROM login WHERE cardno = ?";
+            int failedAttempts = 0;
+            
+            try (PreparedStatement ps = conn.prepareStatement(query)) {
+                ps.setString(1, cardNo);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        failedAttempts = rs.getInt("failed_attempts");
+                    }
+                }
+            }
+            
+            failedAttempts++;
+            
+            // Update failed attempts and lock account if necessary
+            String updateQuery = "UPDATE login SET failed_attempts = ?, is_locked = ? WHERE cardno = ?";
+            try (PreparedStatement ps = conn.prepareStatement(updateQuery)) {
+                ps.setInt(1, failedAttempts);
+                ps.setInt(2, failedAttempts >= MAX_LOGIN_ATTEMPTS ? 1 : 0);
+                ps.setString(3, cardNo);
+                ps.executeUpdate();
+                
+                if (failedAttempts >= MAX_LOGIN_ATTEMPTS) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Too many failed security verification attempts.\n" +
+                        "Your account has been locked for security purposes.\n" +
+                        "Please contact your bank for assistance.",
+                        "Account Locked", JOptionPane.WARNING_MESSAGE);
+                }
+            }
+        } catch (Exception e) {
+            // Silent error handling for security purposes
+        }
+    }
+    
+    private void resetFailedAttempts(String cardNo, Connection conn) {
+        try {
+            String updateQuery = "UPDATE login SET failed_attempts = 0 WHERE cardno = ?";
+            try (PreparedStatement ps = conn.prepareStatement(updateQuery)) {
+                ps.setString(1, cardNo);
+                ps.executeUpdate();
+            }
+        } catch (Exception e) {
+            // Silent error handling
+        }
+    }
+
+    private String showPinResetDialog() {
+        JPanel panel = new JPanel(new GridLayout(4, 2, 5, 5));
+        
+        JPasswordField newPin = new JPasswordField();
+        JPasswordField confirmPin = new JPasswordField();
+        
+        panel.add(new JLabel("Enter new PIN:"));
+        panel.add(newPin);
+        panel.add(new JLabel("Confirm new PIN:"));
+        panel.add(confirmPin);
+        panel.add(new JLabel("PIN must be 4-6 digits"));
+        panel.add(new JLabel("Do not use sequential digits"));
+        
+        int option = JOptionPane.showConfirmDialog(this, panel, "Reset PIN", 
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+            
+        if (option == JOptionPane.OK_OPTION) {
+            String pin1 = new String(newPin.getPassword());
+            String pin2 = new String(confirmPin.getPassword());
+            
+            if (!pin1.equals(pin2)) {
+                JOptionPane.showMessageDialog(this, "PINs do not match!");
+                return null;
+            }
+            
+            if (!pin1.matches("\\d+")) {
+                JOptionPane.showMessageDialog(this, "PIN must contain only digits!");
+                return null;
+            }
+            
+            if (pin1.length() < 4 || pin1.length() > 6) {
+                JOptionPane.showMessageDialog(this, "PIN must be between 4 and 6 digits!");
+                return null;
+            }
+            
+            // Check for sequential digits
+            if (hasSequentialDigits(pin1)) {
+                JOptionPane.showMessageDialog(this, "PIN must not contain sequential digits (e.g., 1234, 5678)");
+                return null;
+            }
+            
+            // Check for repetitive digits
+            if (hasTooManyRepeatingDigits(pin1)) {
+                JOptionPane.showMessageDialog(this, "PIN must not contain too many repeating digits");
+                return null;
+            }
+            
+            return pin1;
+        }
+        
+        return null;
+    }
+    
+    private boolean hasSequentialDigits(String pin) {
+        // Check for common sequences like 1234, 2345, etc.
+        String[] sequences = {"1234", "2345", "3456", "4567", "5678", "6789", "9876", "8765", "7654", "6543", "5432", "4321"};
+        for (String seq : sequences) {
+            if (pin.contains(seq)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private boolean hasTooManyRepeatingDigits(String pin) {
+        // Check if same digit is used more than 3 times
+        for (char c = '0'; c <= '9'; c++) {
+            int count = 0;
+            for (int i = 0; i < pin.length(); i++) {
+                if (pin.charAt(i) == c) {
+                    count++;
+                }
+            }
+            if (count > 3) {
+                return true;
+            }
+        }
+        
+        // Check for 3 or more same consecutive digits
+        for (int i = 0; i < pin.length() - 2; i++) {
+            if (pin.charAt(i) == pin.charAt(i+1) && pin.charAt(i) == pin.charAt(i+2)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    private void updatePin(String cardNo, String newPin, Connection conn) {
+        try {
+            String hashedPin = HashUtil.hashPin(newPin);
+            String updateQuery = "UPDATE login SET pin = ? WHERE cardno = ?";
+            
+            try (PreparedStatement ps = conn.prepareStatement(updateQuery)) {
+                ps.setString(1, hashedPin);
+                ps.setString(2, cardNo);
+                
+                int rowsAffected = ps.executeUpdate();
+                if (rowsAffected > 0) {
+                    JOptionPane.showMessageDialog(this, 
+                        "PIN has been successfully reset.\nPlease login with your new PIN.");
+                    clearFields();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to reset PIN.");
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "An error occurred while updating PIN.");
+        }
+    }
+
     @Override
     public void componentResized(ComponentEvent e) {
         scaleComponents(getSize());
@@ -292,10 +548,12 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
         signInButton.setBounds(buttonX, buttonY, buttonWidth, buttonHeight);
         clearButton.setBounds(buttonX, buttonY + buttonSpacing, buttonWidth, buttonHeight);
         signUpButton.setBounds(buttonX, buttonY + (2 * buttonSpacing), buttonWidth, buttonHeight);
+        resetPinButton.setBounds(buttonX, buttonY + (3 * buttonSpacing), buttonWidth, buttonHeight);
         
         background.add(signInButton);
         background.add(clearButton);
         background.add(signUpButton);
+        background.add(resetPinButton);
         
         // Force a repaint
         background.revalidate();
