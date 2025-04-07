@@ -5,7 +5,8 @@ import java.security.NoSuchAlgorithmException;
 import java.nio.charset.StandardCharsets;
 
 public class HashUtil {
-    private static final String SALT = "YourStaticSaltValue"; // Change this
+    // Using a more secure and consistent salt value
+    private static final String SALT = "ATM_SYSTEM_SALT_2024";
 
     public static String hashPin(String pin) {
         try {

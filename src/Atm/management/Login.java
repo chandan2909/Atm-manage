@@ -10,11 +10,8 @@ import java.awt.event.ComponentAdapter;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class Login extends JFrame implements ActionListener, ComponentListener {
-    private static final Logger logger = Logger.getLogger(Login.class.getName());
     private static final int MAX_LOGIN_ATTEMPTS = 3;
     private int loginAttempts = 0;
     
@@ -33,7 +30,7 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
             ImageIcon icon = new ImageIcon(ClassLoader.getSystemResource("icon/bank.png"));
             setIconImage(icon.getImage());
         } catch (Exception e) {
-            logger.log(Level.WARNING, "Could not set application icon", e);
+            // Silently handle icon loading failure
         }
 
         // Initialize components
@@ -73,7 +70,6 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
             background.setIcon(new ImageIcon(scaledImage));
             
         } catch (Exception e) {
-            logger.log(Level.WARNING, "Background image not found, using default background", e);
             background = new JLabel();
             background.setBackground(new Color(255, 236, 219));
             background.setOpaque(true);
@@ -156,14 +152,13 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
                 handleSignUp();
             }
         } catch (Exception ex) {
-            logger.log(Level.SEVERE, "Login action failed", ex);
             JOptionPane.showMessageDialog(this, "An error occurred. Please try again.");
         }
     }
 
     private void handleSignIn() {
         if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-            JOptionPane.showMessageDialog(this, "Too many failed attempts. Please try again later.");
+            JOptionPane.showMessageDialog(this, "Too many failed attempts. Please contact your bank for assistance.");
             return;
         }
 
@@ -214,7 +209,6 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
                 return rs.next();
             }
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Authentication failed", e);
             return false;
         }
     }
@@ -324,7 +318,6 @@ public class Login extends JFrame implements ActionListener, ComponentListener {
     }
 
     public static void main(String[] args) {
-        LogConfig.configure();
         new Login();
     }
 }
