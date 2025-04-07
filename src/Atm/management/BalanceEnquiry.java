@@ -8,12 +8,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
-public class BalanceEnquriy extends JFrame implements ActionListener {
+public class BalanceEnquiry extends JFrame implements ActionListener {
 
     String pin;
     JLabel label2;
     JButton b1;
-    BalanceEnquriy(String pin){
+    BalanceEnquiry(String pin){
         this.pin =pin;
 
         ImageIcon i1 = new ImageIcon(ClassLoader.getSystemResource("icon/atm2.png"));
